@@ -95,11 +95,26 @@ void ShiftedFloppyDrives::dev_reset(uint8_t subAddress) {
 
 void ShiftedFloppyDrives::dev_noteOn(uint8_t subAddress, uint8_t payload[]) {
     if (payload[0] <= MAX_FLOPPY_NOTE) {
+        if(!subAddress) { // 0 subaddress turns on any free drive. Fail if no drives free.
+            //uint8_t i;
+            for(subAddress = MIN_SUB_ADDRESS; originalPeriod[subAddress- 1] && subAddress <= MAX_SUB_ADDRESS; ++subAddress) { }
+            if(subAddress > MAX_SUB_ADDRESS)
+                return; //i = MIN_SUB_ADDRESS;
+            //subAddress = i;
+        }
         currentPeriod[subAddress - 1] = originalPeriod[subAddress - 1] = noteDoubleTicks[payload[0]];
     }
 };
 void ShiftedFloppyDrives::dev_noteOff(uint8_t subAddress, uint8_t payload[]) {
-    currentPeriod[subAddress - 1] = originalPeriod[subAddress - 1] = 0;
+    if(subAddress) {
+        if(noteDoubleTicks[payload[0]] == originalPeriod[subAddress - 1]) {
+            currentPeriod[subAddress - 1] = originalPeriod[subAddress - 1] = 0;
+        }
+    } else { // 0 subaddress turns off any drive playing that note
+        for(uint8_t i = MIN_SUB_ADDRESS; i <= MAX_SUB_ADDRESS; ++i) {
+            dev_noteOff(i, payload);
+        }
+    }
 };
 void ShiftedFloppyDrives::dev_bendPitch(uint8_t subAddress, uint8_t payload[]) {
     // A value from -8192 to 8191 representing the pitch deflection
