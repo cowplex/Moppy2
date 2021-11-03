@@ -12,7 +12,7 @@
  */
 
 // Floppy drives directly connected to the Arduino's digital pins
-#ifdef INSTRUMENT_FLOPPIES
+/*#ifdef INSTRUMENT_FLOPPIES
 #include "MoppyInstruments/FloppyDrives.h"
 MoppyInstrument *instrument = new instruments::FloppyDrives();
 #endif
@@ -33,13 +33,13 @@ MoppyInstrument *instrument = new instruments::L298N();
 #ifdef INSTRUMENT_SHIFT_REGISTER
 #include "MoppyInstruments/ShiftRegister.h"
 MoppyInstrument *instrument = new instruments::ShiftRegister();
-#endif
+#endif*/
 
 // Floppy drives connected to 74HC595 shift registers
-#ifdef INSTRUMENT_SHIFTED_FLOPPIES
+//#ifdef INSTRUMENT_SHIFTED_FLOPPIES
 #include "MoppyInstruments/ShiftedFloppyDrives.h"
 MoppyInstrument *instrument = new instruments::ShiftedFloppyDrives();
-#endif
+//#endif
 
 /**********
  * MoppyNetwork classes receive messages sent by the Controller application,

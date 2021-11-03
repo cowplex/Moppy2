@@ -5,50 +5,38 @@
  */
 #include "ShiftedFloppyDrives.h"
 #include "MoppyInstrument.h"
-namespace instruments {
+namespace instruments 
+{
 
-uint8_t ShiftedFloppyDrives::stepBits = 0;      // Bits that represent the current state of the step pins
-uint8_t ShiftedFloppyDrives::directionBits = 0; // Bits that represent the current state of the direction pins
+// Required for the icache loops
+uint64_t ShiftedFloppyDrives::tick_count = 0;
+FloppyDrive ShiftedFloppyDrives::drives[DRIVE_COUNT];
 
-/*An array of maximum track positions for each floppy drive.  3.5" Floppies have
- 80 tracks, 5.25" have 50.  These should be doubled, because each tick is now
- half a position (use 158 and 98).
- NOTE: Index zero of this array controls the "resetAll" function, and should be the
- same as the largest value in this array
- */
-unsigned int ShiftedFloppyDrives::MAX_POSITION[] = {158, 158, 158, 158, 158, 158, 158, 158};
-unsigned int ShiftedFloppyDrives::MIN_POSITION[] = {0, 0, 0, 0, 0, 0, 0, 0};
-// ^ Use 81 and 79 for in-place playing
-
-//Array to track the current position of each floppy head.
-unsigned int ShiftedFloppyDrives::currentPosition[] = {0, 0, 0, 0, 0, 0, 0, 0};
-
-// Current period assigned to each drive.  0 = off.  Each period is two-ticks (as defined by
-// TIMER_RESOLUTION in MoppyInstrument.h) long.
-unsigned int ShiftedFloppyDrives::currentPeriod[] = {0, 0, 0, 0, 0, 0, 0, 0};
-
-// Tracks the current tick-count for each drive (see ShiftedFloppyDrives::tick() below)
-unsigned int ShiftedFloppyDrives::currentTick[] = {0, 0, 0, 0, 0, 0, 0, 0};
-
-// The period originally set by incoming messages (prior to any modifications from pitch-bending)
-unsigned int ShiftedFloppyDrives::originalPeriod[] = {0, 0, 0, 0, 0, 0, 0, 0};
-
-void ShiftedFloppyDrives::setup() {
+void ShiftedFloppyDrives::setup()
+{
 
     pinMode(LATCH_PIN, OUTPUT);
     SPI.begin();
     SPI.beginTransaction(SPISettings(16000000, LSBFIRST, SPI_MODE0)); // We're never ending this, hopefully that's okay...
 
-    // With all pins setup, let's do a first run reset
-    resetAll();
-    delay(500); // Wait a half second for safety
+    for (uint8_t d = 0; d < DRIVE_COUNT; d++)
+    {
+        drives[d].period = drives[d].note = drives[d].direction = drives[d].position = 0;
+        drives[d].ticks = 0;
+    }
 
     // Setup timer to handle interrupts for floppy driving
     MoppyTimer::initialize(TIMER_RESOLUTION, tick);
 
+    // With all pins setup, let's do a first run reset
+    delay(500); // Wait a half second for safety
+    resetAll();
+    delay(500); // Wait a half second for safety
+
     // If MoppyConfig wants a startup sound, play the startupSound on the
     // first drive.
-    if (PLAY_STARTUP_SOUND) {
+    if (PLAY_STARTUP_SOUND)
+    {
         startupSound(0);
         delay(500);
         resetAll();
@@ -56,19 +44,19 @@ void ShiftedFloppyDrives::setup() {
 }
 
 // Play startup sound to confirm drive functionality
-void ShiftedFloppyDrives::startupSound(byte driveIndex) {
-    unsigned int chargeNotes[] = {
-        noteDoubleTicks[31],
-        noteDoubleTicks[36],
-        noteDoubleTicks[38],
-        noteDoubleTicks[43],
-        0};
+void ShiftedFloppyDrives::startupSound(byte driveIndex)
+{
+    unsigned int chargeNotes[] = { 31, 36, 38, 43, 0 };
+
     byte i = 0;
     unsigned long lastRun = 0;
-    while (i < 5) {
-        if (millis() - 200 > lastRun) {
+    while (i < 5)
+    {
+        if (millis() - 200 > lastRun)
+        {
             lastRun = millis();
-            currentPeriod[driveIndex] = chargeNotes[i++];
+            drives[driveIndex].note = chargeNotes[i++];
+            drives[driveIndex].period = notePeriods[drives[driveIndex].note];
         }
     }
 }
@@ -77,71 +65,89 @@ void ShiftedFloppyDrives::startupSound(byte driveIndex) {
 //// Message Handlers
 //
 
-void ShiftedFloppyDrives::sys_reset() {
+void ShiftedFloppyDrives::sys_reset()
+{
     resetAll();
 }
 
-void ShiftedFloppyDrives::sys_sequenceStop() {
+void ShiftedFloppyDrives::sys_sequenceStop()
+{
     haltAllDrives();
 }
 
 void ShiftedFloppyDrives::dev_reset(uint8_t subAddress) {
-    if (subAddress == 0x00) {
+    if (subAddress == 0x00)
+    {
         resetAll();
-    } else {
+    }
+    else
+    {
         reset(subAddress);
     }
 }
 
-void ShiftedFloppyDrives::dev_noteOn(uint8_t subAddress, uint8_t payload[]) {
-    if (payload[0] <= MAX_FLOPPY_NOTE) {
-        if(!subAddress) { // 0 subaddress turns on any free drive. Fail if no drives free.
-            //uint8_t i;
-            for(subAddress = MIN_SUB_ADDRESS; originalPeriod[subAddress- 1] && subAddress <= MAX_SUB_ADDRESS; ++subAddress) { }
+void ShiftedFloppyDrives::dev_noteOn(uint8_t subAddress, uint8_t payload[]) 
+{
+    if (payload[0] <= MAX_FLOPPY_NOTE)
+    {
+        if(!subAddress) // 0 subaddress turns on any free drive. Fail if no drives free.
+        { 
+            for(subAddress = MIN_SUB_ADDRESS; drives[subAddress- MIN_SUB_ADDRESS].period && subAddress <= MAX_SUB_ADDRESS; ++subAddress) { }
             if(subAddress > MAX_SUB_ADDRESS)
-                return; //i = MIN_SUB_ADDRESS;
-            //subAddress = i;
+                return;
         }
-        currentPeriod[subAddress - 1] = originalPeriod[subAddress - 1] = noteDoubleTicks[payload[0]];
+        subAddress -= MIN_SUB_ADDRESS;
+        drives[subAddress].note = payload[0];
+        drives[subAddress].period = notePeriods[drives[subAddress].note];
     }
 };
-void ShiftedFloppyDrives::dev_noteOff(uint8_t subAddress, uint8_t payload[]) {
-    if(subAddress) {
-        if(noteDoubleTicks[payload[0]] == originalPeriod[subAddress - 1]) {
-            currentPeriod[subAddress - 1] = originalPeriod[subAddress - 1] = 0;
+void ShiftedFloppyDrives::dev_noteOff(uint8_t subAddress, uint8_t payload[])
+{
+    if(subAddress)
+    {
+        if(payload[0] == drives[subAddress - MIN_SUB_ADDRESS].note)
+        {
+            drives[subAddress - MIN_SUB_ADDRESS].note = drives[subAddress - MIN_SUB_ADDRESS].period = 0;
         }
-    } else { // 0 subaddress turns off any drive playing that note
-        for(uint8_t i = MIN_SUB_ADDRESS; i <= MAX_SUB_ADDRESS; ++i) {
+    }
+    else // 0 subaddress turns off any drive playing that note
+    { 
+        for(uint8_t i = MIN_SUB_ADDRESS; i <= MAX_SUB_ADDRESS; ++i)
+        {
             dev_noteOff(i, payload);
         }
     }
 };
-void ShiftedFloppyDrives::dev_bendPitch(uint8_t subAddress, uint8_t payload[]) {
+void ShiftedFloppyDrives::dev_bendPitch(uint8_t subAddress, uint8_t payload[])
+{
     // A value from -8192 to 8191 representing the pitch deflection
     int16_t bendDeflection = payload[0] << 8 | payload[1];
 
     // A whole octave of bend would double the frequency (halve the the period) of notes
     // Calculate bend based on BEND_OCTAVES from MoppyInstrument.h and percentage of deflection
     //currentPeriod[subAddress] = originalPeriod[subAddress] / 1.4;
-    currentPeriod[subAddress - 1] = originalPeriod[subAddress - 1] / pow(2.0, BEND_OCTAVES * (bendDeflection / (float)8192));
+    drives[subAddress - MIN_SUB_ADDRESS].period = notePeriods[drives[subAddress - MIN_SUB_ADDRESS].note] / pow(2.0, BEND_OCTAVES * (bendDeflection / (float)8192));
+    //currentPeriod[subAddress - MIN_SUB_ADDRESS] = originalPeriod[subAddress - MIN_SUB_ADDRESS] / pow(2.0, BEND_OCTAVES * (bendDeflection / (float)8192));
 };
 
-void ShiftedFloppyDrives::deviceMessage(uint8_t subAddress, uint8_t command, uint8_t payload[]) {
-    switch (command) {
+void ShiftedFloppyDrives::deviceMessage(uint8_t subAddress, uint8_t command, uint8_t payload[])
+{
+    switch (command)
+    {
     case NETBYTE_DEV_SETMOVEMENT:
-        setMovement(subAddress - 1, payload[0] == 0); // MIDI bytes only go to 127, so * 2
+        setMovement(subAddress - MIN_SUB_ADDRESS, payload[0] == 0); // MIDI bytes only go to 127, so * 2
         break;
     }
 }
 
 void ShiftedFloppyDrives::setMovement(byte driveIndex, bool movementEnabled) {
-    if (movementEnabled) {
+    /*if (movementEnabled) {
         MIN_POSITION[driveIndex] = 0;
         MAX_POSITION[driveIndex] = 158;
     } else {
         MIN_POSITION[driveIndex] = 79;
         MAX_POSITION[driveIndex] = 81;
-    }
+    }*/
 }
 
 //
@@ -157,81 +163,78 @@ Additionally, the ICACHE_RAM_ATTR helps avoid crashes with WiFi libraries, but m
 #pragma GCC push_options
 #pragma GCC optimize("Ofast") // Required to unroll this loop, but useful to try to keep this speedy
 #ifdef ARDUINO_ARCH_ESP8266
-void ICACHE_RAM_ATTR ShiftedFloppyDrives::tick() {
+void ICACHE_RAM_ATTR ShiftedFloppyDrives::tick()
+{
 #elif ARDUINO_ARCH_ESP32
-void IRAM_ATTR ShiftedFloppyDrives::tick() {
+void IRAM_ATTR ShiftedFloppyDrives::tick()
+{
 #else
-void ShiftedFloppyDrives::tick() {
+void ShiftedFloppyDrives::tick()
+{
 #endif
-    bool shiftNeeded = false; // True if bits need to be written to registers
+    static uint8_t last_out[DRIVE_BYTES];
+    uint8_t out[DRIVE_BYTES];
+
     /*
-   For each drive, count the number of
-   ticks that pass, and toggle the pin if the current period is reached.
-   */
+    For each drive, count the number of
+    ticks that pass, and toggle the pin if the current period is reached.
+    */
 
-    for (int d = 0; d < LAST_DRIVE; d++) {
-        if (currentPeriod[d] > 0) {
-            if (++currentTick[d] >= currentPeriod[d]) {
-                togglePin(d);
-                shiftNeeded = true;
-                currentTick[d] = 0;
+    // Global tick counter for number of microseconds elapsed.
+    //tick_count += TIMER_RESOLUTION;
+
+    for (int d = 0; d < DRIVE_COUNT; d++)
+    {
+        // Check if note is playing, check if a direction change is needed, and update position
+        if(drives[d].period)// && tick_count % drives[d].period <= (TIMER_RESOLUTION * 2))
+        {
+            drives[d].ticks += 2 * TIMER_RESOLUTION;
+
+            if(drives[d].ticks > drives[d].period)
+            {
+                drives[d].ticks -= drives[d].period;
+                if(drives[d].position >= MAX_POS)
+                    drives[d].direction = 1;
+                else if(drives[d].position <= 0)
+                    drives[d].direction = 0;
+                drives[d].position += drives[d].direction == 0 ? 1 : -1;
             }
+
+            if(drives[d].note == 0 && drives[d].period && drives[d].position == 0) // Drive done resetting
+                drives[d].period = 0;
         }
+        else if(drives[d].ticks)
+        {
+            drives[d].ticks = 0;
+        }
+
+        // Build output array. Step and position are adjacent pairs of bits
+        //out[d / 4] |= ((drives[d].position & 1) << ((2*d) % 4)) | ((drives[0].direction ? 0 : 2) << ((2*d) % 4));
     }
+    out[0] = drives[0].position;//(drives[0].position & 1) + (drives[0].direction == 0 ? 0 : 2);
 
-    if (shiftNeeded) {
-        shiftBits();
+
+    //if(memcmp(last_out, out, DRIVE_BYTES)) // If we have new data
+    {
+        //memcpy(&last_out, &out, DRIVE_BYTES); // update tracking
+    
+        // Latch low
+        #ifdef ARDUINO_AVR_UNO
+        PORTD &= B11101111;
+        #else
+        digitalWrite(LATCH_PIN, LOW);
+        #endif
+
+        // Shift bit array out
+        SPI.transfer(out, DRIVE_BYTES);
+
+        // Latch high - will update shift register output to data just latched in
+        #ifdef ARDUINO_AVR_UNO
+        PORTD |= B00010000;
+        #else
+        digitalWrite(LATCH_PIN, HIGH);
+        #endif
     }
-}
-
-#ifdef ARDUINO_ARCH_ESP8266
-void ICACHE_RAM_ATTR ShiftedFloppyDrives::togglePin(byte driveIndex) {
-#elif ARDUINO_ARCH_ESP32
-void IRAM_ATTR ShiftedFloppyDrives::togglePin(byte driveIndex) {
-#else
-void ShiftedFloppyDrives::togglePin(byte driveIndex) {
-#endif
-
-    unsigned int *cPos = &currentPosition[driveIndex];
-
-    //Switch directions if end has been reached
-    if (*cPos >= MAX_POSITION[driveIndex]) {
-        bitSet(directionBits, driveIndex);
-    } else if (*cPos <= MIN_POSITION[driveIndex]) {
-        bitClear(directionBits, driveIndex);
-    }
-
-    //Update currentPosition
-    if (bitRead(directionBits, driveIndex)) {
-        (*cPos)--;
-    } else {
-        (*cPos)++;
-    }
-
-    stepBits ^= (1 << driveIndex);
-}
-
-#ifdef ARDUINO_ARCH_ESP8266
-void ICACHE_RAM_ATTR ShiftedFloppyDrives::shiftBits() {
-#elif ARDUINO_ARCH_ESP32
-void IRAM_ATTR ShiftedFloppyDrives::shiftBits() {
-#else
-void ShiftedFloppyDrives::shiftBits() {
-#endif
-#ifdef ARDUINO_AVR_UNO
-    PORTD &= B11101111;
-#else
-    digitalWrite(LATCH_PIN, LOW);
-#endif
-
-    SPI.transfer(directionBits);
-    SPI.transfer(stepBits);
-
-#ifdef ARDUINO_AVR_UNO
-    PORTD |= B00010000;
-#else
-    digitalWrite(LATCH_PIN, HIGH);
-#endif
 }
 #pragma GCC pop_options
 
@@ -240,53 +243,38 @@ void ShiftedFloppyDrives::shiftBits() {
 //
 
 // Immediately stops all drives
-void ShiftedFloppyDrives::haltAllDrives() {
-    for (byte d = 0; d < LAST_DRIVE; d++) {
-        currentPeriod[d] = 0;
+void ShiftedFloppyDrives::haltAllDrives()
+{
+    for (uint8_t d = 0; d < DRIVE_COUNT; d++)
+    {
+        drives[d].period  = drives[d].note = 0;
     }
 }
 
 //TODO For a given floppy number, runs the read-head all the way back to 0
-void ShiftedFloppyDrives::reset(byte driveNum) {
-    // currentPeriod[driveNum] = 0; // Stop note
-
-    // byte stepPin = driveNum * 2;
-    // digitalWrite(stepPin + 1, HIGH);                               // Go in reverse
-    // for (unsigned int s = 0; s < MAX_POSITION[driveNum]; s += 2) { //Half max because we're stepping directly (no toggle)
-    //     digitalWrite(stepPin, HIGH);
-    //     digitalWrite(stepPin, LOW);
-    //     delay(5);
-    // }
-    // currentPosition[driveNum] = 0; // We're reset.
-    // currentState[stepPin] = LOW;
-    // digitalWrite(stepPin + 1, LOW);
-    // currentState[stepPin + 1] = LOW; // Ready to go forward.
+void ShiftedFloppyDrives::reset(byte d)
+{
+    d -= MIN_SUB_ADDRESS;
+    //drives[d].direction = 1;
+    drives[d].note = 0;
+    drives[d].position = MAX_POS;
+    drives[d].period = resetPeriod;
 }
 
 // Resets all the drives simultaneously
-void ShiftedFloppyDrives::resetAll() {
+void ShiftedFloppyDrives::resetAll()
+{
 
     // Stop all drives and set to reverse
-    for (byte d = 0; d < LAST_DRIVE; d++) {
-        currentPeriod[d] = 0;
-    }
-    directionBits = B11111111;
-    shiftBits();
-
-    // Reset all drives together
-    for (unsigned int s = 0; s < MAX_POSITION[0]; s += 2) { //Half max because we're stepping directly (no toggle); grab max from index 0
-        stepBits = B11111111;
-        shiftBits();
-        stepBits = B00000000;
-        shiftBits();
-        delay(5);
+    //haltAllDrives();
+    for (uint8_t d = MIN_SUB_ADDRESS; d < MAX_SUB_ADDRESS; d++)
+    {
+        reset(d);
     }
 
-    // Return tracking to ready state
-    directionBits = 0x0;
-    for (byte d = 0; d < LAST_DRIVE; d++) {
-        setMovement(d, true);   // Turn movement back on by default
-        currentPosition[d] = 0; // We're reset.
-    }
+    //for (byte d = 0; d < LAST_DRIVE; d++) {
+    //    setMovement(d, true);   // Turn movement back on by default
+    //    currentPosition[d] = 0; // We're reset.
+    //}
 }
 } // namespace instruments

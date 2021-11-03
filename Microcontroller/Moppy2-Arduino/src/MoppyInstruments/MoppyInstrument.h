@@ -19,16 +19,19 @@
  * which might interfere with other processes but will result in more accurate frequency
  * reproduction.
  */
-#ifdef ARDUINO_ARCH_AVR
-#define TIMER_RESOLUTION 40
-#elif ARDUINO_ARCH_ESP8266 || ARDUINO_ARCH_ESP32
+//#ifdef ARDUINO_ARCH_AVR
+//#define TIMER_RESOLUTION 40
+//#elif ARDUINO_ARCH_ESP8266 || ARDUINO_ARCH_ESP32
 #define TIMER_RESOLUTION 20 // Higher resolution for the faster processor
-#endif
+//#endif
 
 // In some cases a pulse will only happen every-other tick (e.g. if the tick is
 // toggling a pin on and off and pulses happen on rising signal) so to simplify
 // the already ugly arrays below, multiply the RESOLUTION by 2 here.
 #define DOUBLE_T_RESOLUTION (TIMER_RESOLUTION*2)
+
+// Frequency at which a drive resets itself
+const unsigned int resetPeriod = 10000; // 100 hz, or G2 + 35 cents
 
 // The period of notes in microseconds
 const unsigned int notePeriods[128] = {
@@ -79,6 +82,15 @@ const unsigned int noteTicks[128] = {
 class MoppyInstrument : public MoppyMessageConsumer {
 public:
     virtual void setup() = 0;
+};
+
+struct FloppyDrive
+{
+    unsigned int position : 8;
+    unsigned int direction : 1;
+    unsigned int note : 7;
+    unsigned int period : 16;
+    unsigned int ticks : 16;
 };
 
 #endif /* MOPPY_SRC_MOPPYINSTRUMENTS_MOPPYINSTRUMENT_H_ */
