@@ -9,27 +9,24 @@ namespace instruments
 {
 
 // Required for the icache loops
-uint64_t ShiftedFloppyDrives::tick_count = 0;
+//uint64_t ShiftedFloppyDrives::tick_count = 0;
 FloppyDrive ShiftedFloppyDrives::drives[DRIVE_COUNT];
 
 void ShiftedFloppyDrives::setup()
 {
+    // Zero-initialize floppy array
+    memset(drives, 0, DRIVE_COUNT * sizeof(FloppyDrive));
 
+    // Initialize shift register outputs
     pinMode(LATCH_PIN, OUTPUT);
     SPI.begin();
     SPI.beginTransaction(SPISettings(16000000, LSBFIRST, SPI_MODE0)); // We're never ending this, hopefully that's okay...
 
-    for (uint8_t d = 0; d < DRIVE_COUNT; d++)
-    {
-        drives[d].period = drives[d].note = drives[d].direction = drives[d].position = 0;
-        drives[d].ticks = 0;
-    }
-
-    // Setup timer to handle interrupts for floppy driving
+    // Setup timer to handle interrupts for floppy driving. Resolution in microseconds.
     MoppyTimer::initialize(TIMER_RESOLUTION, tick);
 
     // With all pins setup, let's do a first run reset
-    delay(500); // Wait a half second for safety
+    delay(50); // Wait a half second for safety
     resetAll();
     delay(500); // Wait a half second for safety
 
@@ -55,6 +52,7 @@ void ShiftedFloppyDrives::startupSound(byte driveIndex)
         if (millis() - 200 > lastRun)
         {
             lastRun = millis();
+            //uint8_t note[1] = {chargeNotes[i++]};
             drives[driveIndex].note = chargeNotes[i++];
             drives[driveIndex].period = notePeriods[drives[driveIndex].note];
         }
@@ -174,6 +172,7 @@ void ShiftedFloppyDrives::tick()
 #endif
     static uint8_t last_out[DRIVE_BYTES];
     uint8_t out[DRIVE_BYTES];
+    memset(out, 0, DRIVE_BYTES);
 
     /*
     For each drive, count the number of
@@ -209,14 +208,18 @@ void ShiftedFloppyDrives::tick()
         }
 
         // Build output array. Step and position are adjacent pairs of bits
-        //out[d / 4] |= ((drives[d].position & 1) << ((2*d) % 4)) | ((drives[0].direction ? 0 : 2) << ((2*d) % 4));
+        // Bit 0: Drive 0 step; Bit 1: Drive 0 direction; Bit 2: Drive 1 step; etc.
+        // Each byte holds up to 4 drives worth of direction/step pairs.
+        out[d/4] += ((drives[d].position & 1) + (drives[d].direction << 1)) << (d * 2);
     }
-    out[0] = drives[0].position;//(drives[0].position & 1) + (drives[0].direction == 0 ? 0 : 2);
+//    out[0] = ((drives[0].position & 1) + (drives[0].direction << 1)) +
+//             (((drives[1].position & 1) + (drives[1].direction << 1)) << (1* 2)) + 
+//             (((drives[2].position & 1) + (drives[2].direction << 1)) << 4);// ? 2 : 0); //drives[0].position;
 
 
-    //if(memcmp(last_out, out, DRIVE_BYTES)) // If we have new data
+    if(memcmp(last_out, out, DRIVE_BYTES)) // If we have new data
     {
-        //memcpy(&last_out, &out, DRIVE_BYTES); // update tracking
+        memcpy(&last_out, &out, DRIVE_BYTES); // update tracking
     
         // Latch low
         #ifdef ARDUINO_AVR_UNO
@@ -251,7 +254,8 @@ void ShiftedFloppyDrives::haltAllDrives()
     }
 }
 
-//TODO For a given floppy number, runs the read-head all the way back to 0
+// For a given floppy number, runs the read-head all the way back to 0.
+// Does not block
 void ShiftedFloppyDrives::reset(byte d)
 {
     d -= MIN_SUB_ADDRESS;
@@ -261,16 +265,28 @@ void ShiftedFloppyDrives::reset(byte d)
     drives[d].period = resetPeriod;
 }
 
-// Resets all the drives simultaneously
+// Resets all the drives simultaneously. Blocks until done.
 void ShiftedFloppyDrives::resetAll()
 {
 
     // Stop all drives and set to reverse
-    //haltAllDrives();
-    for (uint8_t d = MIN_SUB_ADDRESS; d < MAX_SUB_ADDRESS; d++)
+    haltAllDrives();
+    uint8_t d;
+    for (d = MIN_SUB_ADDRESS; d <= MAX_SUB_ADDRESS; d++)
     {
         reset(d);
     }
+
+    d = 0;
+    while(d < DRIVE_COUNT)
+    {
+        if(drives[d].position)
+            d = 0;
+        else    
+            ++d;
+        delay(5);
+    }
+
 
     //for (byte d = 0; d < LAST_DRIVE; d++) {
     //    setMovement(d, true);   // Turn movement back on by default

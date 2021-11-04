@@ -22,7 +22,7 @@
 //#ifdef ARDUINO_ARCH_AVR
 //#define TIMER_RESOLUTION 40
 //#elif ARDUINO_ARCH_ESP8266 || ARDUINO_ARCH_ESP32
-#define TIMER_RESOLUTION 20 // Higher resolution for the faster processor
+#define TIMER_RESOLUTION 20 // 50 kHz - Higher resolution for the faster processor
 //#endif
 
 // In some cases a pulse will only happen every-other tick (e.g. if the tick is

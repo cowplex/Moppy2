@@ -29,28 +29,15 @@ protected:
     void deviceMessage(uint8_t subAddress, uint8_t command, uint8_t payload[]);
 
 private:
-    //static const uint8_t LAST_DRIVE = 8; // Number of drives being used.  This determines the size of some arrays.
-
     // Maximum note number to attempt to play on floppy drives.  It's possible higher notes may work,
     // but they may also cause instability.
     static const uint8_t MAX_FLOPPY_NOTE = 71;
 
-    //static unsigned int MAX_POSITION[LAST_DRIVE];
-    //static unsigned int MIN_POSITION[LAST_DRIVE];
-    //static unsigned int currentPosition[LAST_DRIVE];
-    //static uint8_t stepBits;      // Bits that represent the current state of the step pins
-    //static uint8_t directionBits; // Bits that represent the current state of the direction pins
-    //static unsigned int currentPeriod[LAST_DRIVE];
-    //static unsigned int currentTick[LAST_DRIVE];
-    //static unsigned int originalPeriod[LAST_DRIVE];
-
-    // New stuff
-    static const uint8_t MAX_POS = 158;
+    static const uint8_t MAX_POS = 158; // Maximum position for floppy drives
     static const uint8_t DRIVE_COUNT = MAX_SUB_ADDRESS - MIN_SUB_ADDRESS + 1; // Number of drives used
-    static const uint8_t DRIVE_BYTES = DRIVE_COUNT / 4 + 1; // Number for bytes 
-    static FloppyDrive drives[DRIVE_COUNT];
-    static uint64_t tick_count;
-    //
+    static const uint8_t DRIVE_BYTES = DRIVE_COUNT / 4 + 1; // Number for bytes needed
+    static FloppyDrive drives[DRIVE_COUNT]; // Drive struct array
+    //static uint64_t tick_count;
 
     static void tick();
     static void resetAll();
