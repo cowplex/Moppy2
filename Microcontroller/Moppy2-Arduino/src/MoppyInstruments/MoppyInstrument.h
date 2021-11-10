@@ -91,6 +91,7 @@ struct FloppyDrive
     unsigned int note : 7;
     unsigned int period : 16;
     unsigned int ticks : 16;
+    unsigned int nomovement : 1; //puts this at non-divisible-by-8 number of bits, but this struct ends up being 8 bytes long anyway
 };
 
 #endif /* MOPPY_SRC_MOPPYINSTRUMENTS_MOPPYINSTRUMENT_H_ */

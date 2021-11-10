@@ -34,6 +34,8 @@ private:
     static const uint8_t MAX_FLOPPY_NOTE = 71;
 
     static const uint8_t MAX_POS = 158; // Maximum position for floppy drives
+    static const uint8_t MAX_POS_NOMOVEMENT = 81;
+    static const uint8_t MIN_POS_NOMOVEMENT = 79;
     static const uint8_t DRIVE_COUNT = MAX_SUB_ADDRESS - MIN_SUB_ADDRESS + 1; // Number of drives used
     static const uint8_t DRIVE_BYTES = DRIVE_COUNT / 4 + 1; // Number for bytes needed
     static FloppyDrive drives[DRIVE_COUNT]; // Drive struct array

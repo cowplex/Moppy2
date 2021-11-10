@@ -26,7 +26,7 @@ void ShiftedFloppyDrives::setup()
     MoppyTimer::initialize(TIMER_RESOLUTION, tick);
 
     // With all pins setup, let's do a first run reset
-    delay(50); // Wait a half second for safety
+    delay(50); // Wait a bit for safety
     resetAll();
     delay(500); // Wait a half second for safety
 
@@ -52,7 +52,6 @@ void ShiftedFloppyDrives::startupSound(byte driveIndex)
         if (millis() - 200 > lastRun)
         {
             lastRun = millis();
-            //uint8_t note[1] = {chargeNotes[i++]};
             drives[driveIndex].note = chargeNotes[i++];
             drives[driveIndex].period = notePeriods[drives[driveIndex].note];
         }
@@ -73,15 +72,12 @@ void ShiftedFloppyDrives::sys_sequenceStop()
     haltAllDrives();
 }
 
-void ShiftedFloppyDrives::dev_reset(uint8_t subAddress) {
+void ShiftedFloppyDrives::dev_reset(uint8_t subAddress)
+{
     if (subAddress == 0x00)
-    {
         resetAll();
-    }
     else
-    {
         reset(subAddress);
-    }
 }
 
 void ShiftedFloppyDrives::dev_noteOn(uint8_t subAddress, uint8_t payload[]) 
@@ -103,9 +99,10 @@ void ShiftedFloppyDrives::dev_noteOff(uint8_t subAddress, uint8_t payload[])
 {
     if(subAddress)
     {
-        if(payload[0] == drives[subAddress - MIN_SUB_ADDRESS].note)
+        subAddress -= MIN_SUB_ADDRESS;
+        if(payload[0] == drives[subAddress].note)
         {
-            drives[subAddress - MIN_SUB_ADDRESS].note = drives[subAddress - MIN_SUB_ADDRESS].period = 0;
+            drives[subAddress].note = drives[subAddress].period = 0;
         }
     }
     else // 0 subaddress turns off any drive playing that note
@@ -121,11 +118,11 @@ void ShiftedFloppyDrives::dev_bendPitch(uint8_t subAddress, uint8_t payload[])
     // A value from -8192 to 8191 representing the pitch deflection
     int16_t bendDeflection = payload[0] << 8 | payload[1];
 
+    subAddress -= MIN_SUB_ADDRESS;
+
     // A whole octave of bend would double the frequency (halve the the period) of notes
     // Calculate bend based on BEND_OCTAVES from MoppyInstrument.h and percentage of deflection
-    //currentPeriod[subAddress] = originalPeriod[subAddress] / 1.4;
-    drives[subAddress - MIN_SUB_ADDRESS].period = notePeriods[drives[subAddress - MIN_SUB_ADDRESS].note] / pow(2.0, BEND_OCTAVES * (bendDeflection / (float)8192));
-    //currentPeriod[subAddress - MIN_SUB_ADDRESS] = originalPeriod[subAddress - MIN_SUB_ADDRESS] / pow(2.0, BEND_OCTAVES * (bendDeflection / (float)8192));
+    drives[subAddress].period = notePeriods[drives[subAddress].note] / pow(2.0, BEND_OCTAVES * (bendDeflection / (float)8192));
 };
 
 void ShiftedFloppyDrives::deviceMessage(uint8_t subAddress, uint8_t command, uint8_t payload[])
@@ -138,14 +135,9 @@ void ShiftedFloppyDrives::deviceMessage(uint8_t subAddress, uint8_t command, uin
     }
 }
 
-void ShiftedFloppyDrives::setMovement(byte driveIndex, bool movementEnabled) {
-    /*if (movementEnabled) {
-        MIN_POSITION[driveIndex] = 0;
-        MAX_POSITION[driveIndex] = 158;
-    } else {
-        MIN_POSITION[driveIndex] = 79;
-        MAX_POSITION[driveIndex] = 81;
-    }*/
+void ShiftedFloppyDrives::setMovement(byte driveIndex, bool movementEnabled)
+{
+    drives[driveIndex].nomovement = movementEnabled;
 }
 
 //
@@ -162,14 +154,12 @@ Additionally, the ICACHE_RAM_ATTR helps avoid crashes with WiFi libraries, but m
 #pragma GCC optimize("Ofast") // Required to unroll this loop, but useful to try to keep this speedy
 #ifdef ARDUINO_ARCH_ESP8266
 void ICACHE_RAM_ATTR ShiftedFloppyDrives::tick()
-{
 #elif ARDUINO_ARCH_ESP32
 void IRAM_ATTR ShiftedFloppyDrives::tick()
-{
 #else
 void ShiftedFloppyDrives::tick()
-{
 #endif
+{
     static uint8_t last_out[DRIVE_BYTES];
     uint8_t out[DRIVE_BYTES];
     memset(out, 0, DRIVE_BYTES);
@@ -192,9 +182,9 @@ void ShiftedFloppyDrives::tick()
             if(drives[d].ticks > drives[d].period)
             {
                 drives[d].ticks -= drives[d].period;
-                if(drives[d].position >= MAX_POS)
+                if(drives[d].position >= drives[d].nomovement ? MAX_POS_NOMOVEMENT : MAX_POS)
                     drives[d].direction = 1;
-                else if(drives[d].position <= 0)
+                else if(drives[d].position <= drives[d].nomovement ? MIN_POS_NOMOVEMENT : 0)
                     drives[d].direction = 0;
                 drives[d].position += drives[d].direction == 0 ? 1 : -1;
             }
@@ -212,10 +202,6 @@ void ShiftedFloppyDrives::tick()
         // Each byte holds up to 4 drives worth of direction/step pairs.
         out[d/4] += ((drives[d].position & 1) + (drives[d].direction << 1)) << (d * 2);
     }
-//    out[0] = ((drives[0].position & 1) + (drives[0].direction << 1)) +
-//             (((drives[1].position & 1) + (drives[1].direction << 1)) << (1* 2)) + 
-//             (((drives[2].position & 1) + (drives[2].direction << 1)) << 4);// ? 2 : 0); //drives[0].position;
-
 
     if(memcmp(last_out, out, DRIVE_BYTES)) // If we have new data
     {
@@ -256,27 +242,29 @@ void ShiftedFloppyDrives::haltAllDrives()
 
 // For a given floppy number, runs the read-head all the way back to 0.
 // Does not block
-void ShiftedFloppyDrives::reset(byte d)
+void ShiftedFloppyDrives::reset(uint8_t d)
 {
     d -= MIN_SUB_ADDRESS;
     //drives[d].direction = 1;
-    drives[d].note = 0;
-    drives[d].position = MAX_POS;
-    drives[d].period = resetPeriod;
+    drives[d].nomovement = 0; // Turn movement on
+    drives[d].note = 0; // No note
+    drives[d].position = MAX_POS; // Set position to MAX
+    drives[d].period = resetPeriod; // Period ON with no note will reset drive
 }
 
 // Resets all the drives simultaneously. Blocks until done.
 void ShiftedFloppyDrives::resetAll()
 {
-
-    // Stop all drives and set to reverse
-    haltAllDrives();
     uint8_t d;
+
+    // Stop all drives and put into reset mode
+    haltAllDrives();
     for (d = MIN_SUB_ADDRESS; d <= MAX_SUB_ADDRESS; d++)
     {
         reset(d);
     }
 
+    // Wait until all drives are reset
     d = 0;
     while(d < DRIVE_COUNT)
     {
@@ -286,11 +274,5 @@ void ShiftedFloppyDrives::resetAll()
             ++d;
         delay(5);
     }
-
-
-    //for (byte d = 0; d < LAST_DRIVE; d++) {
-    //    setMovement(d, true);   // Turn movement back on by default
-    //    currentPosition[d] = 0; // We're reset.
-    //}
 }
 } // namespace instruments
