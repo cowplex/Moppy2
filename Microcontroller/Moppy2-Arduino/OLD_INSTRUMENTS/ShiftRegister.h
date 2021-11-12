@@ -7,7 +7,7 @@
 #define SRC_MOPPYINSTRUMENTS_SHIFTREGISTER_H_
 
 #include <Arduino.h>
-#include "MoppyTimer.h"
+#include "../MoppySystem/MoppyTimer.h"
 #include "MoppyInstrument.h"
 #include "../MoppyConfig.h"
 #include "../MoppyNetworks/MoppyNetwork.h"

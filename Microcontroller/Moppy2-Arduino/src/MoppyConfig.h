@@ -31,6 +31,9 @@
 // is working
 #define PLAY_STARTUP_SOUND true
 
+
+#define TIMER_RESOLUTION 20 // 50 kHz - Higher resolution for the faster processor
+
 // Device address for this microcontroller (only messages sent to this address
 // will be processed.
 #define DEVICE_ADDRESS 0x01

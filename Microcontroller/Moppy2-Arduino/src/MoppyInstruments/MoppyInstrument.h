@@ -7,7 +7,11 @@
 #define MOPPY_SRC_MOPPYINSTRUMENTS_MOPPYINSTRUMENT_H_
 
 #include "../MoppyMessageConsumer.h"
+#include "../MoppyConfig.h"
 #include <Arduino.h>
+
+#define STEPPER_STEPDIR 0
+#define STEPPER_QUAD 1
 
 // Number of octaves to bend notes by at full-deflection (MIDI pitch bending is weird).
 // Described as cents/cents-in-an-octave
@@ -22,7 +26,7 @@
 //#ifdef ARDUINO_ARCH_AVR
 //#define TIMER_RESOLUTION 40
 //#elif ARDUINO_ARCH_ESP8266 || ARDUINO_ARCH_ESP32
-#define TIMER_RESOLUTION 20 // 50 kHz - Higher resolution for the faster processor
+//#define TIMER_RESOLUTION 20 // 50 kHz - Higher resolution for the faster processor
 //#endif
 
 // In some cases a pulse will only happen every-other tick (e.g. if the tick is
@@ -84,14 +88,15 @@ public:
     virtual void setup() = 0;
 };
 
-struct FloppyDrive
+struct StepperInstrument // 8 bytes (?)
 {
-    unsigned int position : 8;
+    unsigned int position : 16; // Max steps 4096.
+    unsigned int max_position : 16;
     unsigned int direction : 1;
     unsigned int note : 7;
     unsigned int period : 16;
     unsigned int ticks : 16;
-    unsigned int nomovement : 1; //puts this at non-divisible-by-8 number of bits, but this struct ends up being 8 bytes long anyway
+    unsigned int nomovement : 1;
 };
 
 #endif /* MOPPY_SRC_MOPPYINSTRUMENTS_MOPPYINSTRUMENT_H_ */

@@ -9,7 +9,7 @@
 #include "../MoppyConfig.h"
 #include "../MoppyNetworks/MoppyNetwork.h"
 #include "MoppyInstrument.h"
-#include "MoppyTimer.h"
+#include "../MoppySystem/MoppyTimer.h"
 #include <Arduino.h>
 #include <SPI.h>
 namespace instruments {
@@ -38,7 +38,7 @@ private:
     static const uint8_t MIN_POS_NOMOVEMENT = 79;
     static const uint8_t DRIVE_COUNT = MAX_SUB_ADDRESS - MIN_SUB_ADDRESS + 1; // Number of drives used
     static const uint8_t DRIVE_BYTES = DRIVE_COUNT / 4 + 1; // Number for bytes needed
-    static FloppyDrive drives[DRIVE_COUNT]; // Drive struct array
+    static StepperInstrument drives[DRIVE_COUNT]; // Drive struct array
     //static uint64_t tick_count;
 
     static void tick();

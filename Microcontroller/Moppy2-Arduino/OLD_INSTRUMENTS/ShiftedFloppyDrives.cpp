@@ -10,12 +10,12 @@ namespace instruments
 
 // Required for the icache loops
 //uint64_t ShiftedFloppyDrives::tick_count = 0;
-FloppyDrive ShiftedFloppyDrives::drives[DRIVE_COUNT];
+StepperInstrument ShiftedFloppyDrives::drives[DRIVE_COUNT];
 
 void ShiftedFloppyDrives::setup()
 {
     // Zero-initialize floppy array
-    memset(drives, 0, DRIVE_COUNT * sizeof(FloppyDrive));
+    memset(drives, 0, DRIVE_COUNT * sizeof(StepperInstrument));
 
     // Initialize shift register outputs
     pinMode(LATCH_PIN, OUTPUT);
@@ -182,9 +182,9 @@ void ShiftedFloppyDrives::tick()
             if(drives[d].ticks > drives[d].period)
             {
                 drives[d].ticks -= drives[d].period;
-                if(drives[d].position >= drives[d].nomovement ? MAX_POS_NOMOVEMENT : MAX_POS)
+                if(drives[d].position >= (drives[d].nomovement ? MAX_POS_NOMOVEMENT : MAX_POS))
                     drives[d].direction = 1;
-                else if(drives[d].position <= drives[d].nomovement ? MIN_POS_NOMOVEMENT : 0)
+                else if(drives[d].position <= (drives[d].nomovement ? MIN_POS_NOMOVEMENT : 0))
                     drives[d].direction = 0;
                 drives[d].position += drives[d].direction == 0 ? 1 : -1;
             }
