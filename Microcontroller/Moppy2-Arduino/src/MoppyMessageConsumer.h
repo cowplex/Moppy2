@@ -11,8 +11,7 @@
 
 class MoppyMessageConsumer {
 public:
-	virtual void setup();
-	virtual void tick();
+	//virtual void setup();
 	virtual void handleSystemMessage(uint8_t command, uint8_t payload[]) {
 		switch (command) {
 		// NETBYTE_SYS_PING is handled by the network adapter directly

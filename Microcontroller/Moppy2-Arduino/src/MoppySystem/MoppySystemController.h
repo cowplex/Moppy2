@@ -9,6 +9,7 @@
 #include <vector>
 #include "../MoppyMessageConsumer.h"
 #include "../MoppyConfig.h"
+#include "../MoppyInstruments/MoppyInstrument.h"
 #include "MoppyTimer.h"
 #include "MoppyOutput.h"
 
@@ -16,7 +17,7 @@ class MoppySystemController : public MoppyMessageConsumer
 {
 public:
 	MoppySystemController();
-	void addDevice(MoppyMessageConsumer *messageConsumer);
+	void addDevice(MoppyInstrument *instrument);
 	void addOutput(MoppyOutput *output);
 	void begin();
 	void handleSystemMessage(uint8_t command, uint8_t payload[]);
@@ -25,10 +26,10 @@ protected:
 
 private:
 	//MoppyMessageConsumer *devices;
-	static std::vector<MoppyMessageConsumer *> devices;
-	static std::vector<MoppyOutput *> outputs;
-	static std::vector<uint8_t> device_bits;
-	static std::vector<uint8_t> output_bits;
+	static std::vector<MoppyInstrument *> devices; // List of instruments
+	static std::vector<MoppyOutput *> outputs; // List of outputs
+	static std::vector<uint8_t> device_bits; // Tracking variable for bits in each instrument
+	static std::vector<uint8_t> output_bits; // Tracking variable for bits in each output
 	static void update();
 };
 

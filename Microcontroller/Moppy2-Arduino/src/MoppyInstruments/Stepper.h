@@ -22,6 +22,7 @@ class Stepper : public MoppyInstrument
 public:
 	Stepper(uint8_t start_address, uint8_t end_address, uint16_t pos_max, uint8_t note_max, uint8_t step_type);
 	void setup();
+	void tick();
 
 protected:
 	void sys_sequenceStop() override;
@@ -32,7 +33,7 @@ protected:
 	void dev_noteOff(uint8_t subAddress, uint8_t payload[]) override;
 	void dev_bendPitch(uint8_t subAddress, uint8_t payload[]) override;
 	void deviceMessage(uint8_t subAddress, uint8_t command, uint8_t payload[]);
-	void tick();
+	//void tick();
 
 private:
 	const uint8_t MAX_NOTE; // Maximum note number to attempt to play
