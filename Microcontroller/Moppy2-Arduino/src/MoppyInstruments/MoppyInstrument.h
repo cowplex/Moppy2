@@ -56,6 +56,8 @@ class MoppyInstrument : public MoppyMessageConsumer {
 public:
     virtual void setup() = 0;
     virtual void tick() = 0;
+    virtual uint8_t getBits() = 0;
+    virtual uint8_t * getOut() = 0;
 };
 
 struct StepperInstrument // 8 bytes (?)

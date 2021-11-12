@@ -23,6 +23,8 @@ public:
 	Stepper(uint8_t start_address, uint8_t end_address, uint16_t pos_max, uint8_t note_max, uint8_t step_type);
 	void setup();
 	void tick();
+	uint8_t getBits();
+	uint8_t * getOut();
 
 protected:
 	void sys_sequenceStop() override;
@@ -43,6 +45,7 @@ private:
 	const uint8_t DRIVE_COUNT; // Number of drives used
 	const uint8_t DRIVE_BYTES; // Number for bytes needed
 	StepperInstrument *drives; // Drive struct array
+	uint8_t *out;
 
 	//void tick();
 	void resetAll();

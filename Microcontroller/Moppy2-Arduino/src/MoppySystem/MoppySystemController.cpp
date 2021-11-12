@@ -8,6 +8,7 @@ std::vector<MoppyInstrument *> MoppySystemController::devices;
 std::vector<MoppyOutput *> MoppySystemController::outputs;
 std::vector<uint8_t> MoppySystemController::device_bits;
 std::vector<uint8_t> MoppySystemController::output_bits;
+std::vector<uint8_t *> MoppySystemController::device_bytes;
 
 MoppySystemController::MoppySystemController()
 {
@@ -16,7 +17,8 @@ MoppySystemController::MoppySystemController()
 void MoppySystemController::addDevice(MoppyInstrument *instrument)
 {
 	devices.push_back(instrument);
-	//device_bits.push_back(messageConsumer->);
+	device_bits.push_back(instrument->getBits());
+	device_bytes.push_back(instrument->getOut());
 }
 void MoppySystemController::addOutput(MoppyOutput *output)
 {

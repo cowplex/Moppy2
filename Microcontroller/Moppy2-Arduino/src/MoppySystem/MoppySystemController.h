@@ -30,6 +30,7 @@ private:
 	static std::vector<MoppyOutput *> outputs; // List of outputs
 	static std::vector<uint8_t> device_bits; // Tracking variable for bits in each instrument
 	static std::vector<uint8_t> output_bits; // Tracking variable for bits in each output
+	static std::vector<uint8_t *> device_bytes; // pointer variable for each instrument's output byte array
 	static void update();
 };
 

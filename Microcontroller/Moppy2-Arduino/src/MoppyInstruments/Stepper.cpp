@@ -14,6 +14,7 @@ Stepper::Stepper(uint8_t start_address, uint8_t end_address, uint16_t pos_max, u
 	: DRIVE_TYPE(step_type), MIN_ADDRESS(start_address), MAX_ADDRESS(end_address), DRIVE_COUNT(MAX_ADDRESS - MIN_ADDRESS + 1), DRIVE_BYTES(DRIVE_COUNT / 4 + 1), MAX_NOTE(note_max), MAX_POS(pos_max)
 {
 	drives = new StepperInstrument[DRIVE_COUNT];
+	out = new uint8_t[DRIVE_BYTES];
 	//uint8_t count, uint16_t pos_max, uint8_t note_max, uint8_t start_address, uint8_t end_address, uint8_t step_type
 }
 
@@ -21,6 +22,7 @@ void Stepper::setup()
 {
 	// Zero-initialize floppy array
 	memset(drives, 0, DRIVE_COUNT * sizeof(StepperInstrument));
+	memset(out, 0, DRIVE_BYTES);
 
 	// With all pins setup, let's do a first run reset
 	delay(50); // Wait a bit for safety
@@ -157,8 +159,8 @@ void IRAM_ATTR Stepper::tick()
 void Stepper::tick()
 #endif
 {
-	uint8_t out[DRIVE_BYTES];
-	memset(out, 0, DRIVE_BYTES);
+	//uint8_t out[DRIVE_BYTES];
+	//memset(out, 0, DRIVE_BYTES);
 
 	/*
 	For each drive, count the number of
@@ -197,6 +199,18 @@ void Stepper::tick()
 	}
 }
 #pragma GCC pop_options
+
+//
+uint8_t Stepper::getBits()
+{
+	//return out;
+	return DRIVE_COUNT * (DRIVE_TYPE ? 4 : 2);
+}
+uint8_t * Stepper::getOut()
+{
+	//return out;
+	return out;
+}
 
 //
 //// UTILITY FUNCTIONS
