@@ -182,9 +182,9 @@ void ShiftedFloppyDrives::tick()
             if(drives[d].ticks > drives[d].period)
             {
                 drives[d].ticks -= drives[d].period;
-                if(drives[d].position >= drives[d].nomovement ? MAX_POS_NOMOVEMENT : MAX_POS)
+                if(drives[d].position >= (drives[d].nomovement ? MAX_POS_NOMOVEMENT : MAX_POS))
                     drives[d].direction = 1;
-                else if(drives[d].position <= drives[d].nomovement ? MIN_POS_NOMOVEMENT : 0)
+                else if(drives[d].position <= (drives[d].nomovement ? MIN_POS_NOMOVEMENT : 0))
                     drives[d].direction = 0;
                 drives[d].position += drives[d].direction == 0 ? 1 : -1;
             }
