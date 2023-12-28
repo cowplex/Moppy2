@@ -71,7 +71,7 @@ void ICACHE_RAM_ATTR MoppySystemController::update()
 					++devd;
 					continue;
 				}
-				d[outd_bit/8] &= devices[devd]->getOut()[devd_bit];
+				d[outd_bit/8] &= devices[devd]->getOut()[devd_bit] << (outd_but % 8);
 			}
 			else
 			{
