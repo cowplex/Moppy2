@@ -1,7 +1,8 @@
 /*
- * 
+ *
  */
 
+#include <numeric>
 #include "MoppySystemController.h"
 
 std::vector<MoppyInstrument *> MoppySystemController::devices;
@@ -27,6 +28,10 @@ void MoppySystemController::addOutput(MoppyOutput *output)
 }
 void MoppySystemController::begin()
 {
+    // Ensure we have at least as many outputs as device bits
+	if(std::accumulate(device_bits.begin(), device_bits.end(), 0) > std::accumulate(output_bits.begin(), output_bits.end(), 0))
+		return;
+
 	MoppyTimer::initialize(TIMER_RESOLUTION, update);
 	for(uint8_t i = 0; i < devices.size(); ++i)
 		devices[i]->setup();
@@ -43,8 +48,39 @@ void MoppySystemController::handleDeviceMessage(uint8_t subAddress, uint8_t comm
 		devices[i]->handleDeviceMessage(subAddress, command, payload);
 }
 
-void MoppySystemController::update()
+void ICACHE_RAM_ATTR MoppySystemController::update()
 {
 	for(uint8_t i = 0; i < devices.size(); ++i)
 	    devices[i]->tick();
+
+	uint8_t devd = 0;
+	uint8_t devd_bit = 0;
+	uint8_t outd_bit = 0;
+	for(uint8_t outd = 0; outd < outputs.size(); ++outd)
+	{
+		outd_bit = 0;
+		uint8_t * d = new uint8_t[outputs[outd]->getByteCount()];
+
+		while(outd_bit < outputs[outd]->getBitCount())
+		{
+			if(devd < devices.size())
+			{
+				if(devd_bit >= devices[devd]->getBits())
+				{
+					devd_bit = 0;
+					++devd;
+					continue;
+				}
+				d[outd_bit/8] &= devices[devd]->getOut()[devd_bit];
+			}
+			else
+			{
+				break;
+			}
+			++outd_bit;
+			++devd_bit;
+		}
+		outputs[outd]->write(d);
+	}
+	//
 }

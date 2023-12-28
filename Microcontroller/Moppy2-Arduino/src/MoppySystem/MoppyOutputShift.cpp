@@ -1,11 +1,11 @@
 /*
- * 
+ *
  */
 
 #include "MoppyOutputShift.h"
 
 // Num Bits is the number of active bits. Does not have to be divisible by 8.
-MoppyOutputShift::MoppyOutputShift(uint8_t numBits, uint8_t latchPin) : 
+MoppyOutputShift::MoppyOutputShift(uint8_t numBits, uint8_t latchPin) :
 	latch(latchPin), bits(numBits), bytes(numBits/8+1)
 {
 	data = new uint8_t[bytes]();
@@ -25,9 +25,9 @@ uint8_t MoppyOutputShift::getByteCount()
 	return bytes;
 }
 
-void MoppyOutputShift::write(uint8_t *d)
+void ICACHE_RAM_ATTR MoppyOutputShift::write(uint8_t *d)
 {
-	if(memcmp(data, d, bytes)) // If we have new data
+	if(memcmp(data, d, bytes) != 0) // If we have new data
 	{
 		memcpy(&data, &d, bytes); // update tracking
 

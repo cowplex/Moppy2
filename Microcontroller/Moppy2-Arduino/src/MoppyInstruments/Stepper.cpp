@@ -3,27 +3,27 @@
  *
  * Stepper instrument class.
  * Supports 2-pin (step / direction) as well as 4-pin stepper output.
- * 
+ *
  */
 #include "Stepper.h"
 #include "MoppyInstrument.h"
-namespace instruments 
+namespace instruments
 {
 
 Stepper::Stepper(uint8_t start_address, uint8_t end_address, uint16_t pos_max, uint8_t note_max, uint8_t step_type)
-	: DRIVE_TYPE(step_type), MIN_ADDRESS(start_address), MAX_ADDRESS(end_address), DRIVE_COUNT(MAX_ADDRESS - MIN_ADDRESS + 1), DRIVE_BYTES(DRIVE_COUNT / 4 + 1), MAX_NOTE(note_max), MAX_POS(pos_max)
+	: MAX_NOTE(note_max), DRIVE_TYPE(step_type), MAX_POS(pos_max), MAX_ADDRESS(end_address), MIN_ADDRESS(start_address), DRIVE_COUNT(MAX_ADDRESS - MIN_ADDRESS + 1), DRIVE_BYTES(DRIVE_COUNT / 4 + 1)
 {
 	drives = new StepperInstrument[DRIVE_COUNT];
 	out = new uint8_t[DRIVE_BYTES];
 	//uint8_t count, uint16_t pos_max, uint8_t note_max, uint8_t start_address, uint8_t end_address, uint8_t step_type
+
+    // Zero-initialize floppy array; was in setup()
+	memset(drives, 0, DRIVE_COUNT * sizeof(StepperInstrument));
+	memset(out, 0, DRIVE_BYTES);
 }
 
 void Stepper::setup()
 {
-	// Zero-initialize floppy array
-	memset(drives, 0, DRIVE_COUNT * sizeof(StepperInstrument));
-	memset(out, 0, DRIVE_BYTES);
-
 	// With all pins setup, let's do a first run reset
 	delay(50); // Wait a bit for safety
 	resetAll();
@@ -79,12 +79,12 @@ void Stepper::dev_reset(uint8_t subAddress)
 		reset(subAddress);
 }
 
-void Stepper::dev_noteOn(uint8_t subAddress, uint8_t payload[]) 
+void Stepper::dev_noteOn(uint8_t subAddress, uint8_t payload[])
 {
 	if (payload[0] <= MAX_NOTE)
 	{
 		if(!subAddress) // 0 subaddress turns on any free drive. Fail if no drives free.
-		{ 
+		{
 			for(subAddress = MIN_ADDRESS; drives[subAddress- MIN_ADDRESS].period && subAddress <= MAX_ADDRESS; ++subAddress) { }
 			if(subAddress > MAX_ADDRESS)
 				return;
@@ -105,7 +105,7 @@ void Stepper::dev_noteOff(uint8_t subAddress, uint8_t payload[])
 		}
 	}
 	else // 0 subaddress turns off any drive playing that note
-	{ 
+	{
 		for(uint8_t i = MIN_ADDRESS; i <= MAX_ADDRESS; ++i)
 		{
 			dev_noteOff(i, payload);
@@ -153,14 +153,17 @@ Additionally, the ICACHE_RAM_ATTR helps avoid crashes with WiFi libraries, but m
 #pragma GCC optimize("Ofast") // Required to unroll this loop, but useful to try to keep this speedy
 #ifdef ARDUINO_ARCH_ESP8266
 void ICACHE_RAM_ATTR Stepper::tick()
+//void Stepper::tick()
 #elif ARDUINO_ARCH_ESP32
 void IRAM_ATTR Stepper::tick()
 #else
 void Stepper::tick()
 #endif
 {
+	static uint8_t *last_out = new uint8_t[DRIVE_BYTES];
+	memcpy(&last_out, &out, DRIVE_BYTES);
 	//uint8_t out[DRIVE_BYTES];
-	//memset(out, 0, DRIVE_BYTES);
+	memset(out, 0, DRIVE_BYTES);
 
 	/*
 	For each drive, count the number of
@@ -197,6 +200,9 @@ void Stepper::tick()
 		// Each byte holds up to 4 drives worth of direction/step pairs.
 		out[d/4] += ((drives[d].position & 1) + (drives[d].direction << 1)) << (d * 2);
 	}
+
+	//return *last_out != *out;
+	//return (memcmp(last_out, out, DRIVE_BYTES) != 0);
 }
 #pragma GCC pop_options
 
@@ -255,7 +261,7 @@ void Stepper::resetAll()
 	{
 		if(drives[d].position)
 			d = 0;
-		else    
+		else
 			++d;
 		delay(5);
 	}

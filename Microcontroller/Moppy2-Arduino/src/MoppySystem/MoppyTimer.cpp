@@ -14,7 +14,7 @@ void MoppyTimer::initialize(unsigned long microseconds, void (*isr)()) {
     timer1_isr_init();
     timer1_attachInterrupt(isr);
     timer1_enable(TIM_DIV16, TIM_EDGE, TIM_LOOP);
-    timer1_write(5 * microseconds);
+    timer1_write(5 * microseconds); // DIV16 = 5 MHz, 2 us; .0000002 * 5 * 20 = .00002 s, 50000 hz
 #elif ARDUINO_ARCH_ESP32
     hw_timer_t *timer = timerBegin(0, 80, true);
     timerAttachInterrupt(timer, isr, true);

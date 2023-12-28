@@ -53,7 +53,7 @@ void setup()
 
 	// Call setup() on the instrument to allow to to prepare for action
 	//instrument_list[0]->setup();
-	controller->begin();
+	controller->begin(); // Start the timer and initialize the instruments
 
 	// Tell the network to start receiving messages
 	network->begin();

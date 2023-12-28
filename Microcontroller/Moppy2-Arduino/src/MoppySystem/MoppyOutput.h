@@ -1,5 +1,5 @@
 /*
- * 
+ *
  */
 
 #ifndef MOPPY_SRC_MOPPYOUTPUT_H_
@@ -14,10 +14,11 @@ class MoppyOutput
 public:
     virtual uint8_t getBitCount();
     virtual uint8_t getByteCount();
+    virtual void write(uint8_t *d);
 protected:
 
 private:
 
 };
 
-#endif 
+#endif
